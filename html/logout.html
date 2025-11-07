@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lowongin Aja! — Logout</title>
+    <link rel="stylesheet" href="../css/styles-logout.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <h1>Lowongin Aja!</h1>
+      <nav class="nav">
+        <a href="data-diri.html">Data Diri</a>
+        <a href="daftar-lowongan.html">Lowongan</a>
+        <a href="logout.html">Logout</a>
+      </nav>
+    </header>
+    <div class="container">
+      <section class="card center">
+        <h2>Keluar</h2>
+        <p class="muted">Sesi Anda akan diakhiri dan data lokal dibersihkan.</p>
+        <button id="btn-logout" class="btn">Logout Sekarang</button>
+        <a class="link" href="daftar-lowongan.html">Kembali ke Lowongan</a>
+      </section>
+    </div>
+    <div class="modal-backdrop" id="modal">
+      <div class="modal">
+        <h3 id="modal-title">Notifikasi</h3>
+        <p id="modal-message">Pesan</p>
+        <div class="actions">
+          <button class="btn" id="modal-ok">OK</button>
+        </div>
+      </div>
+    </div>
+    <script>(function(){
+      const modal = document.getElementById('modal');
+      const modalTitle = document.getElementById('modal-title');
+      const modalMsg = document.getElementById('modal-message');
+      const modalOk = document.getElementById('modal-ok');
+      function showModal(title, msg){
+      modalTitle.textContent = title||'Notifikasi';
+      modalMsg.textContent = msg||'';
+      modal.style.display = 'flex';
+      return new Promise(res=>{
+      function close(){
+      modal.style.display='none';
+      modalOk.removeEventListener('click', close);
+      res();
+      }
+      modalOk.addEventListener('click', close);
+      }
+      );
+      }
+      document.getElementById('btn-logout').addEventListener('click', async ()=>{
+      localStorage.removeItem('user');
+      localStorage.removeItem('profile');
+      localStorage.removeItem('hired');
+      await showModal('Berhasil Logout','Anda telah logout.');
+      window.location.href='index.html';
+      }
+      );
+      }
+      )();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lowongin Aja! — Login</title>
+    <link rel="stylesheet" href="../css/styles-index.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <h1>Lowongin Aja!</h1>
+      <nav class="nav">
+        <a href="index.html">Login</a>
+      </nav>
+    </header>
+    <div class="container">
+      <section class="card">
+        <h2>Masuk</h2>
+        <div class="muted">Gunakan <b>John Doe</b> / <b>18223000</b> untuk demo.</div>
+        <form id="form-login" novalidate autocomplete="off">
+          <label>Nama Mahasiswa
+            <input id="nama" type="text" required value="John Doe" autocomplete="off">
+          </label>
+          <label>NIM (8 digit)
+            <input id="nim" type="text" inputmode="numeric" pattern="\\d{8}" required value="18223000" autocomplete="off">
+          </label>
+          <button class="btn" type="submit">Masuk</button>
+        </form>
+        <div id="login-error" class="alert" style="display:none">Nama/NIM tidak sesuai format demo. Pastikan persis: John Doe / 18223000.</div>
+      </section>
+    </div>
+    <script>(function(){
+      localStorage.removeItem('profile');
+      const form = document.getElementById('form-login');
+      const err = document.getElementById('login-error');
+      form.addEventListener('submit', (e)=>{
+      e.preventDefault();
+      const nama = (document.getElementById('nama').value||'').normalize('NFKC').trim().replace(/\s+/g,' ').toLowerCase();
+      const nim = (document.getElementById('nim').value||'').normalize('NFKC').trim();
+      const ok = (nama === 'john doe') && (new RegExp('^\\d{8}$').test(nim) && nim === '18223000');
+      if(ok){
+      localStorage.setItem('user', JSON.stringify({
+      nama:'John Doe', nim:'18223000'
+      }
+      ));
+      localStorage.removeItem('hired');
+      window.location.href = 'data-diri.html';
+      }
+      else{
+      err.style.display = 'block';
+      }
+      }
+      );
+      }
+      )();
+    </script>
+  </body>
+</html>

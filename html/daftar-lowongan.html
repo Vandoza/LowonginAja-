@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lowongin Aja! — Daftar Lowongan</title>
+    <link rel="stylesheet" href="../css/styles-daftar-lowongan.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <h1>Lowongin Aja!</h1>
+      <nav class="nav">
+        <a href="data-diri.html">Data Diri</a>
+        <a href="daftar-lowongan.html">Lowongan</a>
+        <a href="logout.html">Logout</a>
+      </nav>
+    </header>
+    <div class="container">
+      <section class="card">
+        <h2>Lowongan Pekerjaan yang Sesuai</h2>
+        <div class="toolbar">
+          <button id="btn-reload" class="btn btn-secondary">Muat Ulang</button>
+        </div>
+        <div id="jobs" class="jobs">
+        </div>
+      </section>
+    </div>
+    <div class="modal-backdrop" id="modal">
+      <div class="modal">
+        <h3 id="modal-title">Notifikasi</h3>
+        <p id="modal-message">Pesan</p>
+        <div class="actions">
+          <button class="btn" id="modal-ok">OK</button>
+        </div>
+      </div>
+    </div>
+    <script>
+(function(){
+  const modal = document.getElementById('modal');
+  const modalTitle = document.getElementById('modal-title');
+  const modalMsg = document.getElementById('modal-message');
+  const modalOk = document.getElementById('modal-ok');
+  function showModal(title, msg){
+    modalTitle.textContent = title || 'Notifikasi';
+    modalMsg.textContent = msg || '';
+    modal.style.display = 'flex';
+    return new Promise(function(res){
+      function close(){
+        modal.style.display = 'none';
+        modalOk.removeEventListener('click', close);
+        res();
+      }
+      modalOk.addEventListener('click', close);
+    });
+  }
+
+  const profile = JSON.parse(localStorage.getItem('profile') || 'null');
+  if(!profile || !profile.user){
+    window.location.href = 'index.html';
+    return;
+  }
+  var alreadyHired = localStorage.getItem('hired') === 'true';
+  const jobsEl = document.getElementById('jobs');
+  const btnReload = document.getElementById('btn-reload');
+  btnReload.addEventListener('click', loadJobs);
+
+  function norm(s){
+    return (s || '').toLowerCase();
+  }
+  function includesAny(hay, arr){
+    for(var i=0;i<arr.length;i++){
+      if(hay.indexOf(arr[i]) !== -1){
+        return true;
+      }
+    }
+    return false;
+  }
+  function indonesiaStrict(job){
+    var hay = norm(job.location) + ' ' + norm(job.description);
+    var cities = ['indonesia','jakarta','bandung','surabaya','yogyakarta','yogyak','bali','medan','makassar','semarang','depok','bekasi','tangerang','bogor','malang','denpasar','pontianak','palembang','batam','banjarmasin'];
+    return includesAny(hay, cities);
+  }
+  function apacEligible(job){
+    var hay = norm(job.location) + ' ' + norm(job.description) + ' ' + norm(job.title);
+    var apacKeys = ['apac','asia','south east asia','southeast asia','asean','sea region','utc+7','gmt+7','wib','ict time','jakarta time','singapore time','malaysia time','vietnam time','thailand time'];
+    var remoteKeys = ['remote','anywhere','distributed','work from home','wfh','hybrid'];
+    return includesAny(hay, apacKeys) && includesAny(hay, remoteKeys);
+  }
+  function scoreRelevance(job, kw){
+    var hay = norm(job.title + ' ' + (job.tags || []).join(' ') + ' ' + job.company);
+    var score = 0;
+    for(var i=0;i<kw.length;i++){
+      if(hay.indexOf(kw[i]) !== -1){
+        score += 1;
+      }
+    }
+    if(indonesiaStrict(job)){
+      score += 5;
+    }
+    if(apacEligible(job)){
+      score += 2;
+    }
+    return score;
+  }
+  function dedup(arr){
+    var seen = {};
+    var out = [];
+    for(var i=0;i<arr.length;i++){
+      var j = arr[i];
+      var key = (j.title || '') + '::' + (j.company || '') + '::' + (j.url || '');
+      if(!seen[key]){
+        seen[key] = true;
+        out.push(j);
+      }
+    }
+    return out;
+  }
+  function initialsOf(name){
+    var parts = (name || '').trim().split(/\s+/).slice(0,2);
+    var a = parts[0] ? parts[0][0] : '';
+    var b = parts[1] ? parts[1][0] : '';
+    var s = (a + b).toUpperCase();
+    return s || 'CO';
+  }
+  function colorFrom(text){
+    var h = 0;
+    for(var i=0;i<text.length;i++){
+      h = (h * 31 + text.charCodeAt(i)) & 0xffffffff;
+    }
+    var hue = Math.abs(h) % 360;
+    return 'hsl(' + hue + ' 45% 35%)';
+  }
+  function svgAvatar(name){
+    var initials = initialsOf(name);
+    var fill = colorFrom(name || 'Company');
+    var svg = "<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64'><rect width='64' height='64' rx='10' ry='10' fill='" + fill + "' /><text x='50%' y='58%' font-size='28' font-weight='700' text-anchor='middle' fill='#fff' font-family='Arial, sans-serif'>" + initials + "</text></svg>";
+    return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+  }
+
+  async function expandKeywords(baseKw){
+    var list = baseKw.slice(0);
+    try{
+      var q = baseKw.slice(0,6).map(function(x){return encodeURIComponent(x);}).join('+');
+      if(q.length){
+        var r = await fetch('https://api.datamuse.com/words?ml=' + q + '&max=20');
+        var j = await r.json();
+        var extras = Array.isArray(j) ? j.map(function(x){ return String(x.word || '').toLowerCase(); }) : [];
+        var seen = {};
+        list = list.concat(extras).filter(function(v){
+          if(!v) return false;
+          if(seen[v]) return false;
+          seen[v] = true;
+          return true;
+        }).slice(0,40);
+      }
+    }catch(e){
+    }
+    return list;
+  }
+
+  async function fetchRemotive(){
+    var r = await fetch('https://remotive.com/api/remote-jobs');
+    var j = await r.json();
+    var arr = Array.isArray(j.jobs) ? j.jobs : [];
+    return arr.map(function(x){
+      return {
+        title: x.title || '',
+        company: x.company_name || '',
+        tags: x.tags || [],
+        location: x.candidate_required_location || (x.job_type || 'Remote'),
+        url: x.url || '',
+        description: x.description || ''
+      };
+    });
+  }
+  async function fetchJobicy(){
+    var r = await fetch('https://jobicy.com/api/v2/remote-jobs');
+    var j = await r.json();
+    var arr = Array.isArray(j.jobs) ? j.jobs : [];
+    return arr.map(function(x){
+      return {
+        title: x.jobTitle || '',
+        company: x.companyName || '',
+        tags: (x.jobTags || []).map(function(t){ return String(t).toLowerCase(); }),
+        location: x.jobGeo || 'Remote',
+        url: x.url || '',
+        description: x.jobDescription || ''
+      };
+    });
+  }
+  async function fetchArbeitnow(){
+    var r = await fetch('https://arbeitnow.com/api/job-board-api');
+    var j = await r.json();
+    var arr = Array.isArray(j.data) ? j.data : [];
+    return arr.map(function(x){
+      return {
+        title: x.title || '',
+        company: x.company || '',
+        tags: (x.tags || []).map(function(t){ return String(t).toLowerCase(); }),
+        location: x.location || 'Remote',
+        url: x.url || '',
+        description: x.description || ''
+      };
+    });
+  }
+
+  async function loadJobs(){
+    jobsEl.innerHTML = '<p class="muted">Memuat lowongan relevan…</p>';
+    var baseKw = (profile.keywords || []).map(function(x){ return String(x).toLowerCase(); });
+    var kw = await expandKeywords(baseKw);
+
+    var pool = [];
+    try{
+      pool = await fetchRemotive();
+    }catch(e1){
+      try{
+        pool = await fetchJobicy();
+      }catch(e2){
+        try{
+          pool = await fetchArbeitnow();
+        }catch(e3){
+          jobsEl.innerHTML = '<div class="alert">Gagal memuat data lowongan dari semua sumber. Coba lagi.</div>';
+          return;
+        }
+      }
+    }
+    pool = dedup(pool);
+
+    var indonesiaList = pool.filter(function(j){ return indonesiaStrict(j); }).sort(function(a,b){ return scoreRelevance(b,kw) - scoreRelevance(a,kw); });
+    var apacList = pool.filter(function(j){ return !indonesiaStrict(j) && apacEligible(j); }).sort(function(a,b){ return scoreRelevance(b,kw) - scoreRelevance(a,kw); });
+
+    var NEED = 12;
+    var finalList = indonesiaList.slice(0, NEED);
+    if(indonesiaList.length < NEED){
+      finalList = indonesiaList.concat(apacList).slice(0, NEED);
+    }
+    if(finalList.length === 0){
+      jobsEl.innerHTML = '<p class="muted">Belum ada lowongan yang cocok di Indonesia.</p>';
+      return;
+    }
+
+    jobsEl.innerHTML = '';
+    var list = document.createElement('div');
+    list.className = 'job-list';
+    for(var i=0;i<finalList.length;i++){
+      var job = finalList[i];
+      var isID = indonesiaStrict(job);
+      var isAPAC = apacEligible(job) && !isID;
+      var idBadge = isID ? '<span class="badge badge-id">Indonesia</span>' : '';
+      var apacBadge = isAPAC ? '<span class="badge badge-apac">APAC-eligible</span>' : '';
+      var leftBadges = (idBadge + apacBadge) || '&nbsp;';
+      var card = document.createElement('div');
+      card.className = 'job-card';
+      var logoUrl = svgAvatar(job.company || 'Perusahaan');
+      card.innerHTML = ''
+        + '<div class="job-head">'
+        +   '<img class="logo" alt="logo perusahaan" src="' + logoUrl + '">'
+        +   '<div>'
+        +     '<div class="position">' + (job.title) + '</div>'
+        +     '<div class="company">' + (job.company || 'Perusahaan') + '</div>'
+        +     '<div class="tags">' + (job.tags || []).slice(0,6).map(function(t){ return '<span>' + t + '</span>'; }).join('') + '</div>'
+        +   '</div>'
+        + '</div>'
+        + '<div class="job-foot">'
+        +   '<span>' + leftBadges + '</span>'
+        +   '<a class="link" target="_blank" href="' + job.url + '">Detail</a>'
+        +   '<button class="btn btn-secondary btn-apply">Tambah</button>'
+        + '</div>'
+      ;
+      card.querySelector('.btn-apply').addEventListener('click', async function(){
+        if(!alreadyHired){
+          alreadyHired = true;
+          localStorage.setItem('hired', 'true');
+          await showModal('Sukses', 'Selamat! Anda diterima!');
+        }else{
+          await showModal('Info', 'Anda sudah memiliki pekerjaan.');
+        }
+      });
+      list.appendChild(card);
+    }
+    jobsEl.appendChild(list);
+  }
+
+  loadJobs();
+})();
+</script>
+  </body>
+</html>

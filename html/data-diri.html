@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lowongin Aja! — Data Diri</title>
+    <link rel="stylesheet" href="../css/styles-data-diri.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <h1>Lowongin Aja!</h1>
+      <nav class="nav">
+        <a href="data-diri.html">Data Diri</a>
+        <a href="daftar-lowongan.html">Lowongan</a>
+        <a href="logout.html">Logout</a>
+      </nav>
+    </header>
+    <div class="container">
+      <section class="card">
+        <h2>Data Diri</h2>
+        <form id="form-profile">
+          <label>Minat (pisahkan dengan koma)
+            <input id="minat" type="text" placeholder="contoh: web, backend, data">
+          </label>
+          <label>Keahlian (pisahkan dengan koma)
+            <input id="skill" type="text" placeholder="contoh: javascript, python, sql">
+          </label>
+          <fieldset>
+            <legend>Mata Kuliah Diambil (bisa pilih lebih dari satu)</legend>
+            <div class="checkbox-row">
+              <label>
+                <input type="checkbox" name="mk" value="integrasi"> Teknologi Sistem Terintegrasi</label>
+                <label>
+                  <input type="checkbox" name="mk" value="web"> Pengembangan Aplikasi dan Web</label>
+                  <label>
+                    <input type="checkbox" name="mk" value="enterprise"> Arsitektur Enterprise</label>
+                  </div>
+                  <small>Centang satu atau lebih sesuai riwayat perkuliahan Anda.</small>
+                </fieldset>
+                <label>Projek Kuliah (opsional)
+                  <textarea id="projek" rows="3" placeholder="contoh: Website marketplace kampus, ETL data lab">
+                  </textarea>
+                </label>
+                <div class="center">
+                  <button class="btn" type="submit">Lanjut ke Lowongan</button>
+                </div>
+              </form>
+            </section>
+          </div>
+          <script>(function(){
+            const user = JSON.parse(localStorage.getItem('user')||'null');
+            if(!user){
+            window.location.href='index.html';
+            return;
+            }
+            const courseMap = {
+            integrasi: ['integration','system','api','microservices','devops','pipeline'],
+            web: ['web','frontend','backend','javascript','react','node','fullstack'],
+            enterprise: ['enterprise','architecture','erp','analytics','data','governance']
+            }
+            ;
+            function tokenize(s){
+            return s.split(',').map(x=>x.trim().toLowerCase()).filter(Boolean);
+            }
+            document.getElementById('form-profile').addEventListener('submit', (e)=>{
+            e.preventDefault();
+            const minat = tokenize(document.getElementById('minat').value);
+            const skill = tokenize(document.getElementById('skill').value);
+            const mk = Array.from(document.querySelectorAll('input[name="mk"]:checked')).map(i=>i.value);
+            const projek = document.getElementById('projek').value.trim();
+            const expanded = [...minat, ...skill];
+            mk.forEach(k => expanded.push(...courseMap[k]));
+            const profile = {
+            user, minat, skill, mk, projek, keywords: Array.from(new Set(expanded))
+            }
+            ;
+            localStorage.setItem('profile', JSON.stringify(profile));
+            window.location.href = 'daftar-lowongan.html';
+            }
+            );
+            }
+            )();
+          </script>
+        </body>
+      </html>
